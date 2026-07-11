@@ -679,14 +679,9 @@
                 }
             });
 
-            // ⚠️ 接続デバイス（Kotlin）へのデータ引き渡し処理
+            // ⚠️ 【大幅軽量化】Base64にせず、「曲のファイル名」だけを送信します！
             if (window.AndroidBridge && window.AndroidBridge.playOnCast) {
-                const reader = new FileReader();
-                reader.readAsDataURL(track.data);
-                reader.onloadend = () => {
-                    const base64Data = reader.result.split(',')[1];
-                    window.AndroidBridge.playOnCast(base64Data, track.name);
-                };
+                window.AndroidBridge.playOnCast(track.name);
             }
 
             if (autoPlay) playAudio();
