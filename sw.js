@@ -33,9 +33,7 @@ self.addEventListener('fetch', (e) => {
 
   e.respondWith(
     caches.match(e.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
+      if (cachedResponse) return cachedResponse;
       return fetch(e.request).then((response) => {
         if (response.status === 200 || response.type === 'opaque') {
           const responseClone = response.clone();
