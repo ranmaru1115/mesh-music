@@ -219,7 +219,7 @@
             font-size: 1.4rem;
             font-weight: 400;
             color: var(--md-sys-color-on-background);
-            margin: 0 0 6px 0;
+            margin: 0;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -338,7 +338,9 @@
 
         <div class="track-info">
             <p class="track-title" id="title">アルバム未登録</p>
-            <p class="status-msg" id="status-msg"></p>
+            <!-- 作成者用の行を新設 -->
+            <p class="track-artist" id="artist" style="font-size: 0.85rem; color: var(--md-sys-color-on-surface-variant); margin: 4px 0 0 0; height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></p>
+            <p class="status-msg" id="status-msg" style="margin-top: 4px;"></p>
         </div>
 
         <div class="progress-container" id="progress-container">
@@ -467,8 +469,6 @@
             };
         }
 
-        // Oggページを結合してビット列を作るヘルパー
-        // (YTDLnisの大きめサムネはOpusTagsパケットが複数ページに分割されるため必須)
         function concatUint8Chunks(chunks) {
             let total = 0;
             for (const c of chunks) total += c.length;
@@ -478,7 +478,6 @@
             return out;
         }
 
-        // Oggファイル全体を歩いて、ページをまたぐパケットも正しく結合して取り出す
         function extractOggPackets(uint8, maxPackets) {
             const packets = [];
             let pending = [];
@@ -507,13 +506,11 @@
             return packets;
         }
 
-        // 🛠️ YTDLnis(Matroska/WebM) ＆ Ogg 完全構造パース型カバーアートデコーダー
         async function extractUniversalOpusCover(fileBlob) {
             const buffer = await fileBlob.arrayBuffer();
             const view = new DataView(buffer);
             const uint8 = new Uint8Array(buffer);
 
-            // 1. Matroska / WebM (EBML構造)
             if (view.getUint32(0) === 0x1A45DFA3) {
                 let offset = 4;
                 
@@ -567,7 +564,6 @@
                 return null;
             }
 
-            // 2. Ogg コンテナ
             if (!(uint8[0] === 0x4f && uint8[1] === 0x67 && uint8[2] === 0x67 && uint8[3] === 0x53)) {
                 return null;
             }
@@ -638,7 +634,24 @@
             
             currentObjectUrl = URL.createObjectURL(track.data);
             audio.src = currentObjectUrl;
-            titleEl.textContent = track.name.replace(/\.[^/.]+$/, "");
+
+            // --- 自動パース処理 (作成者 - 曲名) ---
+            let filename = track.name.replace(/\.[^/.]+$/, ""); // 拡張子を削除
+            filename = filename.replace(/\s*\[[a-zA-Z0-9_-]{11}\]/g, ""); // YouTube IDを削除
+
+            const separatorIndex = filename.indexOf(' - ');
+            const artistEl = document.getElementById('artist');
+
+            if (separatorIndex !== -1) {
+                const artistName = filename.substring(0, separatorIndex).trim();
+                const songTitle = filename.substring(separatorIndex + 3).trim();
+                titleEl.textContent = songTitle;
+                artistEl.textContent = artistName;
+            } else {
+                titleEl.textContent = filename;
+                artistEl.textContent = "";
+            }
+            // ------------------------------------
 
             try {
                 currentTrackCoverUrl = await extractUniversalOpusCover(track.data);
@@ -665,6 +678,17 @@
                     item.classList.remove('active');
                 }
             });
+
+            // --- Android (Kotlin) 側へ再生データを送信 ---
+            if (window.AndroidBridge && window.AndroidBridge.playOnCast) {
+                const reader = new FileReader();
+                reader.readAsDataURL(track.data);
+                reader.onloadend = () => {
+                    const base64Data = reader.result.split(',')[1];
+                    window.AndroidBridge.playOnCast(base64Data, track.name);
+                };
+            }
+            // ------------------------------------------
 
             if (autoPlay) playAudio();
         }
@@ -715,12 +739,15 @@
             });
         }
 
+        // UI初期化
         function resetPlayerUI() {
             audio.pause(); audio.src = '';
             if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
             if (currentTrackCoverUrl) URL.revokeObjectURL(currentTrackCoverUrl);
             currentObjectUrl = null; currentTrackCoverUrl = null;
-            titleEl.textContent = 'アルバム未登録'; playlistEl.innerHTML = ''; barAlbumName.textContent = 'MeshMusic';
+            titleEl.textContent = 'アルバム未登録';
+            document.getElementById('artist').textContent = '';
+            playlistEl.innerHTML = ''; barAlbumName.textContent = 'MeshMusic';
             artworkImg.style.display = 'none'; artworkPlaceholder.style.display = 'flex';
             progressBar.style.width = '0%'; currentTimeEl.textContent = '0:00'; durationEl.textContent = '0:00';
             playIcon.textContent = 'play_arrow'; playPauseBtn.disabled = true; prevBtn.disabled = true; nextBtn.disabled = true;
