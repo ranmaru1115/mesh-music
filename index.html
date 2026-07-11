@@ -338,7 +338,7 @@
 
         <div class="track-info">
             <p class="track-title" id="title">アルバム未登録</p>
-            <!-- 作成者用の行を新設 -->
+            <!-- 作成者用の表示エリア -->
             <p class="track-artist" id="artist" style="font-size: 0.85rem; color: var(--md-sys-color-on-surface-variant); margin: 4px 0 0 0; height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></p>
             <p class="status-msg" id="status-msg" style="margin-top: 4px;"></p>
         </div>
@@ -636,8 +636,8 @@
             audio.src = currentObjectUrl;
 
             // --- 自動パース処理 (作成者 - 曲名) ---
-            let filename = track.name.replace(/\.[^/.]+$/, ""); // 拡張子を削除
-            filename = filename.replace(/\s*\[[a-zA-Z0-9_-]{11}\]/g, ""); // YouTube IDを削除
+            let filename = track.name.replace(/\.[^/.]+$/, ""); // 拡張子削除
+            filename = filename.replace(/\s*\[[a-zA-Z0-9_-]{11}\]/g, ""); // YouTube ID 除去
 
             const separatorIndex = filename.indexOf(' - ');
             const artistEl = document.getElementById('artist');
@@ -651,7 +651,7 @@
                 titleEl.textContent = filename;
                 artistEl.textContent = "";
             }
-            // ------------------------------------
+            // ---------------------------------
 
             try {
                 currentTrackCoverUrl = await extractUniversalOpusCover(track.data);
@@ -679,7 +679,7 @@
                 }
             });
 
-            // --- Android (Kotlin) 側へ再生データを送信 ---
+            // ⚠️ 接続デバイス（Kotlin）へのデータ引き渡し処理
             if (window.AndroidBridge && window.AndroidBridge.playOnCast) {
                 const reader = new FileReader();
                 reader.readAsDataURL(track.data);
@@ -688,7 +688,6 @@
                     window.AndroidBridge.playOnCast(base64Data, track.name);
                 };
             }
-            // ------------------------------------------
 
             if (autoPlay) playAudio();
         }
@@ -709,6 +708,7 @@
         }
         function setProgress(e) { const d = audio.duration; if (d) audio.currentTime = (e.offsetX / this.clientWidth) * d; }
 
+        // リスト描画
         function renderPlaylist() {
             playlistEl.innerHTML = '';
             playlist.forEach((track, index) => {
@@ -739,7 +739,6 @@
             });
         }
 
-        // UI初期化
         function resetPlayerUI() {
             audio.pause(); audio.src = '';
             if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
